@@ -1,68 +1,5 @@
 #include "read_elf64.h"
 
-static int dis_fprintf(void *stream, const char *fmt, ...) {
-  stream_state *ss = (stream_state *)stream;
-
-  va_list arg;
-  va_start(arg, fmt);
-  if (!ss->reenter) {
-    vasprintf(&ss->insn_buffer, fmt, arg);
-    ss->reenter = 1;
-  } else {
-    char *tmp;
-    vasprintf(&tmp, fmt, arg);
-
-    char *tmp2;
-    asprintf(&tmp2, "%s%s", ss->insn_buffer, tmp);
-    free(ss->insn_buffer);
-    free(tmp);
-    ss->insn_buffer = tmp2;
-  }
-  va_end(arg);
-
-  return 0;
-}
-
-char *disassemble_raw(uint8_t *input_buffer, size_t input_buffer_size) {
-  char *disassembled = NULL;
-  stream_state ss = {};
-
-  disassemble_info disasm_info = {};
-  init_disassemble_info(&disasm_info, &ss, dis_fprintf);
-  disasm_info.arch = bfd_arch_i386;
-  disasm_info.mach = bfd_mach_x86_64;
-  disasm_info.read_memory_func = buffer_read_memory;
-  disasm_info.buffer = input_buffer;
-  disasm_info.buffer_vma = 0;
-  disasm_info.buffer_length = input_buffer_size;
-  disassemble_init_for_target(&disasm_info);
-
-  disassembler_ftype disasm;
-  disasm = disassembler(bfd_arch_i386, 0, bfd_mach_x86_64, NULL);
-
-  size_t pc = 0;
-  while (pc < input_buffer_size) {
-    size_t insn_size = disasm(pc, &disasm_info);
-    pc += insn_size;
-
-    if (disassembled == NULL) {
-      asprintf(&disassembled, "%s", ss.insn_buffer);
-    } else {
-      char *tmp;
-      asprintf(&tmp, "%s\n%s", disassembled, ss.insn_buffer);
-      free(disassembled);
-      disassembled = tmp;
-    }
-
-    /* Reset the stream state after each instruction decode.
-     */
-    free(ss.insn_buffer);
-    ss.reenter = 0;
-  }
-
-  return disassembled;
-}
-
 void print_raw(char *buf, int size, int width) {
   for (int i = 0; i < size; i++) {
     printf("%02x", buf[i]);
@@ -74,7 +11,7 @@ void print_raw(char *buf, int size, int width) {
   }
 }
 
-Elf64_Addr lookup_symbol(handle64_t *h, const char *symname) {
+Elf64_Addr lookup_symbol64(handle64_t *h, const char *symname) {
   int i, j;
   char *strtab;
   Elf64_Sym *symtab;
@@ -91,7 +28,7 @@ Elf64_Addr lookup_symbol(handle64_t *h, const char *symname) {
   return 0;
 }
 
-void list_dynamic(handle64_t *h, const int index) {
+void list_dynamic64(handle64_t *h, const int index) {
   Elf64_Dyn *dynamic = (Elf64_Dyn *)&h->mem[h->shdr[index].sh_offset];
   int i, num = h->shdr[index].sh_size / sizeof(Elf64_Dyn);
   for (i = 0; i < num; i++, dynamic++) {
@@ -112,7 +49,7 @@ void list_dynamic(handle64_t *h, const int index) {
   }
 }
 
-void list_symbol(handle64_t *h, const int index) {
+void list_symbol64(handle64_t *h, const int index) {
   Elf64_Sym *symtab = (Elf64_Sym *)&h->mem[h->shdr[index].sh_offset];
   int j, num = h->shdr[index].sh_size / sizeof(Elf64_Sym);
   for (j = 0; j < num; j++, symtab++) {
@@ -181,7 +118,7 @@ void list_symbol(handle64_t *h, const int index) {
   }
 }
 
-void print_section_hdr(handle64_t *h) {
+void print_section_hdr64(handle64_t *h) {
   printf("strtab offset %lx\n", h->strtab);
   for (int i = 0; i < h->ehdr->e_shnum; i++) {
     if (strcmp((char *)h->mem + h->shstrtab + h->shdr[i].sh_name, ".got.plt") ==
@@ -190,7 +127,7 @@ void print_section_hdr(handle64_t *h) {
     }
     if (strcmp((char *)h->mem + h->shstrtab + h->shdr[i].sh_name, ".dynamic") ==
         0) {
-      list_dynamic(h, i);
+      list_dynamic64(h, i);
     }
     if (strcmp((char *)h->mem + h->shstrtab + h->shdr[i].sh_name, ".got.plt") ==
         0) {
@@ -200,7 +137,7 @@ void print_section_hdr(handle64_t *h) {
       free(dis);
     }
     if (h->shdr[i].sh_type == SHT_SYMTAB) {
-      list_symbol(h, i);
+      list_symbol64(h, i);
     }
     printf("%-20s %10lx %10lx\n", h->mem + h->shstrtab + h->shdr[i].sh_name,
            h->shdr[i].sh_offset, h->shdr[i].sh_size);
@@ -255,9 +192,9 @@ int read_elf64_info(handle64_t *h, int pid) {
     printf("Section header table not found\n");
     exit(-1);
   }
-  print_section_hdr(h);
+  print_section_hdr64(h);
 
-  if ((h->symaddr = lookup_symbol(h, h->symname)) == 0) {
+  if ((h->symaddr = lookup_symbol64(h, h->symname)) == 0) {
     printf("Unable to find symbol: %s not found in executable\n", h->symname);
     exit(-1);
   }

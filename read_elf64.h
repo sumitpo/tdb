@@ -29,12 +29,7 @@ typedef struct handle64 {
   char *exec;
 } handle64_t;
 
-typedef struct {
-  char *insn_buffer;
-  int reenter;
-} stream_state;
-
-Elf64_Addr lookup_symbol(handle64_t *, const char *);
+Elf64_Addr lookup_symbol64(handle64_t *, const char *);
 
 static int dis_fprintf(void *stream, const char *fmt, ...);
 
@@ -42,10 +37,10 @@ static char *disassemble_raw(uint8_t *input_buffer, size_t input_buffer_size);
 
 void print_raw(char *buf, int size, int width);
 
-static void list_dynamic(handle64_t *h, const int index);
+static void list_dynamic64(handle64_t *h, const int index);
 
-static void list_symbol(handle64_t *h, const int index);
+static void list_symbol64(handle64_t *h, const int index);
 
-static void print_section_hdr(handle64_t *h);
+static void print_section_hdr64(handle64_t *h);
 
 int read_elf64_info(handle64_t *h, int pid) __attribute__ ((visibility("default")));
